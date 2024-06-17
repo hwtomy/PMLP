@@ -8,8 +8,8 @@ import scipy.optimize as opt
 
 
 
-def Vertex_numeration(epsilon, Px, N):
-    k = len(epsilon)
+def Vertex_numeration(k, Px, N):
+    epsilon = np.sum(-np.log(Px[0:N-k]))
     V = []
     for i in range(k):
         tsum = sum(Px[N-i,N])
