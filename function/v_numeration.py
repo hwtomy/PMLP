@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 import cvxpy as cp
+from utility import mutual, spearman_rank_correlation, infgain, kldiv
+
 
 
 def Vertex_numeration(k, Px, N):
@@ -61,7 +63,10 @@ def Vertex_numeration(k, Px, N):
 
 def mutual_opt(Px,V, N):
     Py = cp.Variable(N)
-    Pxy = cp.Variable((N, N))
+    Pxy = np.zeros((N, N))
+    for i in range(N):
+        for j in range(N):
+              Pxy[i,j] = V[i,j]* Py[i]*Px[j]
 
     constraints = [
         Pxy >= 0,
@@ -70,15 +75,9 @@ def mutual_opt(Px,V, N):
     ]
 
     for i in range(N):
-        constraints.append(cp.sum(cp.multiply(Py, V[i, :])) == 1)
+        constraints.append(cp.sum([Py[j] * V[i, j] for j in range(N)]) == 1)
 
-    H_X = -cp.sum(cp.multiply(Px, cp.log(Px)))
-    H_Y = -cp.sum(cp.multiply(Py, cp.log(Py)))
-    H_XY = -cp.sum(cp.multiply(Pxy, cp.log(Pxy)))
-
-    mutual_information = H_X + H_Y - H_XY
-
-    objective = cp.Maximize(mutual_information)
+    objective = cp.Maximize(cp.sum([mutual(V[:, j], Py[j], Px) for j in range(N)]))
 
     constraints += [
         cp.sum(Py) == 1,
@@ -101,34 +100,118 @@ def person_opt(Px, V, N):
     ]
 
     for i in range(N):
-        constraints.append(cp.sum(cp.multiply(Py, V[i, :])) == 1)
-
-    data_points = np.arange(len(Px))
-    X_sample = np.random.choice(data_points, size=N, p=Px)
-    #data_points1 = np.arange(len(Py))
-    Y_sample = np.random.choice(data_points, size=N, p=Px)
-
-    # 计算均值
-    X_mean = np.mean(X_sample)
-    Y_mean = np.mean(Y_sample)
-
-    # 定义皮尔逊相关系数的分子和分母部分
-    numerator = cp.sum((X_sample - X_mean) * (Pxy - Y_mean))
-    denominator = cp.sqrt(cp.sum((X_sample - X_mean) ** 2) * cp.sum((Pxy - Y_mean) ** 2))
-
-    pearson_correlation = numerator / denominator
-
-    objective = cp.Maximize(pearson_correlation)
+        constraints.append(cp.sum([Py[j] * V[i, j] for j in range(N)]) == 1)
 
     constraints += [
         cp.sum(Py) == 1,  #
         Py >= 0
     ]
 
+    data_points = np.arange(len(Px))
+    X_sample = np.random.choice(data_points, size=N, p=Px)
+    #data_points1 = np.arange(len(Py))
+    Y_sample = np.random.choice(data_points, size=N, p=Px)
+
+
+    X_mean = np.mean(X_sample)
+    Y_mean = np.mean(Y_sample)
+
+    #personal coefficient
+    numerator = cp.sum((X_sample - X_mean) * (Pxy - Y_mean))
+    denominator = cp.sqrt(cp.sum((X_sample - X_mean) ** 2) * cp.sum((Pxy - Y_mean) ** 2))
+    pearson_correlation = 1 - numerator / denominator
+
+    #explained variance
+    # numerator = cp.sum((X_sample - Y_sample)**2)
+    # denominator = cp.sqrt(cp.sum((X_sample - X_mean)**2)
+    #
+    # pearson_correlation = 1-numerator / denominator
+
+    #spearman's corrletation
+
+    objective = cp.Maximize(cp.sum([Py[j] * pearson_correlation[j] for j in range(N)]))
+
     proby = cp.Problem(objective, constraints)
     result = proby.solve()
 
     return Py.value
+
+# def infgain_opt(Px,V, N):
+#     N1 = np.shape(V)[0]
+#     Py = cp.Variable(N1)
+#     Pxy = cp.Variable((N, N))
+#     PXY = cp.multiply(V, Px.reshape(-1, 1)) * Py
+#
+#     constraints = [
+#         Pxy >= 0,
+#         cp.sum(Pxy, axis=1) == Px,
+#         cp.sum(Pxy, axis=0) == Py
+#     ]
+#
+#     for i in range(N):
+#         constraints.append(cp.sum(cp.multiply(Py, V[i, :])) == 1)
+#
+#     H_Y = -cp.sum(cp.multiply(Py, cp.log(Py + 1e-9)))
+#
+#     #  H(Y|X)
+#     H_Y_given_X = -cp.sum(cp.multiply(PXY, cp.log(PXY + 1e-9)))
+#
+#     # 计算信息增益 IG(X, Y)
+#     information_gain = H_Y - H_Y_given_X
+#
+#     objective = cp.Maximize(cp.sum([Py[j] * mutual_information[j] for j in range(N)]))
+#
+#     constraints += [
+#         cp.sum(Py) == 1,
+#         Py >= 0
+#     ]
+#
+#     proby = cp.Problem(objective, constraints)
+#     result = proby.solve()
+#
+#     return Py.value
+
+def spearman(Px, V, N):
+    Py = cp.Variable(N)
+    Pxy = cp.multiply(V, Px.reshape(-1, 1)) * Py
+
+    constraints = [
+        Pxy >= 0,
+        cp.sum(Pxy, axis=1) == Px,
+        cp.sum(Pxy, axis=0) == Py
+    ]
+
+    for i in range(N):
+        constraints.append(cp.sum([Py[j] * V[i, j] for j in range(N)]) == 1)
+
+    constraints += [
+        cp.sum(Py) == 1,  #
+        Py >= 0
+    ]
+
+    Py_initial = np.random.rand(N)
+    Py_initial = Py_initial / np.sum(Py_initial)
+
+    initial_spearman_terms = [spearman_rank_correlation(Py_initial, V[:, j]) for j in range(N)]
+    initial_spearman_corr = np.sum(initial_spearman_terms)
+
+    initial_objective = cp.Maximize(initial_spearman_corr)
+    initial_prob = cp.Problem(initial_objective, constraints)
+    initial_result = initial_prob.solve()
+
+    Py_initial = Py.value
+
+    # 最终目标函数
+    spearman_terms = [spearman_rank_correlation(Py_initial, V[:, j]) for j in range(N)]
+    spearman_corr = cp.sum(spearman_terms)
+
+    # 定义最终目标函数，最大化正相关系数
+    final_objective = cp.Maximize(spearman_corr)
+    final_prob = cp.Problem(final_objective, constraints)
+    final_result = final_prob.solve()
+
+    return Py.value
+
 
 
 
