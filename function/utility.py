@@ -6,7 +6,7 @@ from scipy.stats import rankdata
 
 
 def mutual(lambda_star_j, PY_j, Px):
-    return cp.sum(cp.multiply(cp.log(N * lambda_star_j), lambda_star_j * PY_j * Px))
+    return cp.multiply(PY_j, cp.sum(cp.multiply(cp.log(lambda_star_j), lambda_star_j * Px)))
 
 def infgain(lambda_star_j, PY_j, Px):
     H_Y = -cp.sum(cp.multiply(PY_j, cp.log(PY_j)))

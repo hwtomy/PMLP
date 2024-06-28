@@ -2,23 +2,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 import cvxpy as cp
-from utility import mutual, spearman_rank_correlation, infgain, kldiv
+from function.utility import mutual, spearman_rank_correlation, infgain, kldiv
+from itertools import combinations
 
 
 
 def Vertex_numeration(k, Px, N):
     epsilon = np.sum(-np.log(Px[0:N-k]))
     V = []
+    #d = 0
     for i in range(k):
-        tsum = sum(Px[N-i,N])
-        if tsum >=np.exp(-epsilon[i-1]):
-            lambdav = np.zeros(N)
-            for j in range(N-i, N):
-                lambdav[j] = (1-np.exp(epsilon[i-1]))*(tsum - Px[j])/Px[j]
-                for j1 in range(N-i, N):
-                    if j1 != j:
-                        lambdav[j1] = np.exp(epsilon[i-1])
-                V.append(lambdav)
+        for J in combinations(range(N), N - i):
+            #print(Px.shape)
+            #print(J)
+            tsum = sum(Px[m] for m in J)
+            if tsum >=np.exp(-epsilon):
+                lambdav = np.zeros(N)
+                for j in J:
+                    lambdav[j] = 1-np.exp(epsilon)*(tsum - Px[j])/Px[j]
+                    for j1 in J:
+                        if j1 != j:
+                            #print(j1,j)
+                            lambdav[j1] = np.exp(epsilon)
+                    #print(lambdav)
+                    V.append(lambdav.copy())
+                    #d += 1
+    #print(d)
     return V
 
 
@@ -62,30 +71,37 @@ def Vertex_numeration(k, Px, N):
 #         raise ValueError("No result")
 
 def mutual_opt(Px,V, N):
-    Py = cp.Variable(N)
-    Pxy = np.zeros((N, N))
-    for i in range(N):
-        for j in range(N):
-              Pxy[i,j] = V[i,j]* Py[i]*Px[j]
+    N1 = V.shape[0]
+    Py = cp.Variable(N1)
+    Pya = cp.Variable(N1, boolean=True)
+    # Pxy = np.zeros((N, N))
+    # for i in range(N):
+    #     for j in range(N):
+    #           Pxy[i,j] = V[i,j]* Py[i]*Px[j]
 
     constraints = [
-        Pxy >= 0,
-        cp.sum(Pxy, axis=1) == Px,
-        cp.sum(Pxy, axis=0) == Py
+        # Pxy >= 0,
+        # cp.sum(Pxy, axis=1) == Px,
+        # cp.sum(Pxy, axis=0) == Py
     ]
+    print(V.shape)
+    #print(Py.shape)
 
     for i in range(N):
-        constraints.append(cp.sum([Py[j] * V[i, j] for j in range(N)]) == 1)
+        constraints.append(cp.sum([Py[j] * V[j, i] for j in range(N1)]) == 1)
 
-    objective = cp.Maximize(cp.sum([mutual(V[:, j], Py[j], Px) for j in range(N)]))
+    objective = cp.Maximize(cp.sum([mutual(V[j, :], Py[j], Px) for j in range(N1)]))
 
     constraints += [
         cp.sum(Py) == 1,
         Py >= 0
     ]
+    M = 1
+    constraints += [Py[i] <= M * Pya[i] for i in range(N1)]
+    constraints += [Py[i] >= 0 for i in range(N1)]
 
     proby = cp.Problem(objective, constraints)
-    result = proby.solve()
+    result = proby.solve(solver=cp.ECOS_BB)
 
     return Py.value
 
