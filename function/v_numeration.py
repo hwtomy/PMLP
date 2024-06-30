@@ -4,6 +4,9 @@ import scipy.optimize as opt
 import cvxpy as cp
 from function.utility import mutual, spearman_rank_correlation, infgain, kldiv
 from itertools import combinations
+import gurobipy as gp
+from gurobipy import GRB
+
 
 
 
@@ -19,7 +22,8 @@ def Vertex_numeration(k, Px, N):
             if tsum >=np.exp(-epsilon):
                 lambdav = np.zeros(N)
                 for j in J:
-                    lambdav[j] = 1-np.exp(epsilon)*(tsum - Px[j])/Px[j]
+                    lambdav[j] = (1-(np.exp(epsilon)*(tsum - Px[j])))/Px[j]
+                    #print(lambdav[j])
                     for j1 in J:
                         if j1 != j:
                             #print(j1,j)
@@ -74,34 +78,84 @@ def mutual_opt(Px,V, N):
     N1 = V.shape[0]
     Py = cp.Variable(N1)
     Pya = cp.Variable(N1, boolean=True)
-    # Pxy = np.zeros((N, N))
-    # for i in range(N):
-    #     for j in range(N):
-    #           Pxy[i,j] = V[i,j]* Py[i]*Px[j]
 
-    constraints = [
-        # Pxy >= 0,
-        # cp.sum(Pxy, axis=1) == Px,
-        # cp.sum(Pxy, axis=0) == Py
-    ]
-    print(V.shape)
+    constraints = []
+    #print(V.shape)
     #print(Py.shape)
 
     for i in range(N):
-        constraints.append(cp.sum([Py[j] * V[j, i] for j in range(N1)]) == 1)
+        constraints.append(cp.sum(cp.multiply(Py,V[:, i])) == 1)
 
     objective = cp.Maximize(cp.sum([mutual(V[j, :], Py[j], Px) for j in range(N1)]))
 
-    constraints += [
-        cp.sum(Py) == 1,
-        Py >= 0
-    ]
-    M = 1
-    constraints += [Py[i] <= M * Pya[i] for i in range(N1)]
-    constraints += [Py[i] >= 0 for i in range(N1)]
+    constraints.append(cp.sum(Py) == 1)
+    M = 1e6
 
+    for i in range(N1):
+        constraints.append(Py[i] <= M * Pya[i])
+        constraints.append(Py[i] >= 0)
+
+    #constraints += [Py[i] <= M * Pya[i] for i in range(N1)]
+    constraints.append(cp.sum(Pya) <= N)
+    #constraints += [Py[i] >= 0 for i in range(N1)]
+
+    # print("Objective:", objective)
+    # print("Constraints:")
+    # for constraint in constraints:
+    #     print(constraint)
     proby = cp.Problem(objective, constraints)
-    result = proby.solve(solver=cp.ECOS_BB)
+    #result = proby.solve(solver=cp.GUROBI, verbose=True, reoptimize=True,**{"Presolve": 0})
+    result = proby.solve(solver=cp.GUROBI)
+    # print("Problem status:", proby.status)
+
+    # problem = cp.Problem(objective, constraints)
+    #
+    # # 自定义回调函数
+    # def callback(model, where):
+    #     if where == GRB.Callback.MIP:
+    #         obj = model.cbGet(GRB.Callback.MIP_OBJBST)
+    #         obj_bound = model.cbGet(GRB.Callback.MIP_OBJBND)
+    #         print(f"Current Best Objective: {obj}, Current Best Bound: {obj_bound}")
+    #
+    # try:
+    #     # 将问题转换为 Gurobi 模型
+    #     model = gp.Model()
+    #
+    #     # 添加变量
+    #     gurobi_x = model.addMVar(shape=N1, vtype=GRB.CONTINUOUS, name="Py")
+    #     gurobi_z = model.addMVar(shape=N1, vtype=GRB.BINARY, name="Pya")
+    #
+    #     # 添加约束
+    #     for i in range(N1):
+    #         model.addConstr(gurobi_x[i] <= M * gurobi_z[i], name=f"x_{i}_constr")
+    #         model.addConstr(gurobi_x[i] >= 0, name=f"x_{i}_non_neg")
+    #
+    #     model.addConstr(gurobi_x.sum() == 1, name="sum_1")
+    #     model.addConstr(gurobi_z.sum() <= N, name="non_zero")
+    #
+    #     # 设置目标函数
+    #     model.setObjective(gurobi_x.sum(), GRB.MAXIMIZE)
+    #
+    #     # 设置回调函数
+    #     model.optimize(callback)
+    #
+    #     # 输出结果
+    #     print("Optimal value:", model.ObjVal)
+    #     print("Optimal solution x:", gurobi_x.X)
+    #     print("Non-zero elements in x:", np.count_nonzero(gurobi_x.X))
+    # except gp.GurobiError as e:
+    #     print("Gurobi error:", e)
+    #
+    # # 检查问题状态
+    # status = model.Status
+    # if status == GRB.INFEASIBLE:
+    #     print("The problem is infeasible.")
+    # elif status == GRB.UNBOUNDED:
+    #     print("The problem is unbounded.")
+    # elif status == GRB.OPTIMAL:
+    #     print("The problem is optimal.")
+    # else:
+    #     print("Solver terminated with status:", status)
 
     return Py.value
 

@@ -19,7 +19,7 @@ if __name__ == "__main__":
     Px = np.array(Px[0:3])
     Px = Px/ np.sum(Px)
     #print(sum(Px))
-    #print(Px)
+    print(Px)
     N = len(Px)
     V = Vertex_numeration(k, Px, N)
     V = np.array(V)
