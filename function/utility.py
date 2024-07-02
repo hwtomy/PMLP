@@ -7,14 +7,16 @@ from scipy.stats import rankdata
 
 def mutual(lambda_star_j, PY_j, Px):
     ep = 1e-6
-
-    return cp.multiply(PY_j, np.sum(np.multiply(np.log(lambda_star_j+ep), lambda_star_j @ Px)))
+    # for i in range(len(lambda_star_j)):
+    #     if lambda_star_j[i] == 0:
+    #         Px[i] = ep
+    return cp.multiply(PY_j, np.sum(np.multiply(np.log(lambda_star_j+(1e-9)), lambda_star_j @ Px)))
 
 def X_squared(lambda_star_j, PY_j, Px):
-    return cp.multiply(PY_j, cp.sum(cp.multiply((lambda_star_j^2-1), Px)))
+    return cp.multiply(PY_j, np.sum(np.multiply((lambda_star_j**2-1), Px)))
 
-def TV(lambda_star_j, PY_j, Px):
-    return cp.multiply(PY_j, cp.sum(cp.abs((lambda_star_j-1), 0.5*Px)))
+def TV (lambda_star_j, PY_j, Px):
+    return cp.multiply(PY_j, np.sum(np.multiply(abs(lambda_star_j-1), 0.5*Px)))
 
 def infgain(lambda_star_j, PY_j, Px):
     H_Y = -cp.sum(cp.multiply(PY_j, cp.log(PY_j)))

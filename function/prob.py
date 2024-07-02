@@ -15,9 +15,9 @@ def makelist(x):
     Xlist = counts.index
     Xlist = Xlist.tolist()
     Xlist = np.array(Xlist)
-    Px = counts.values
-    Px = Px / np.sum(Px)
+    Nx= counts.values
+    Px =Nx / np.sum(x)
 
-    return Xlist, Px
+    return Xlist, Px, Nx
 
 

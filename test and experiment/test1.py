@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
-from function.v_numeration import Vertex_numeration, mutual_opt, person_opt
+from function.v_numeration import Vertex_numeration, mutual_opt
 from function.prob import makelist
 import pandas as pd
+from evaluation.evaluation import pearson, mutual
+import datetime
 import os
 
 
@@ -12,36 +14,78 @@ if __name__ == "__main__":
     file_path = 'F:\\PMLP\\data\\winequality-red-cleaned.csv'
     data = pd.read_csv(file_path)
     X = data.iloc[:, 0]
-    Xlist, Px = makelist(X)
+    Xlist, Px, Nx = makelist(X)
     N = len(Px)
     k = 2
+    mutuals = np.zeros(26)
+    pearsons = np.zeros(26)
+    tests = np.array([3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,20,25,30,40,50,60,70,80,90,95])
+    i = 0
+    for j in tests:
+        Px1=np.zeros(j)
+        Px1 = np.array(Px[0:j])
+        Px1 = Px1/ np.sum(Px1)
+        #print(sum(Px1))
+        #print(Px)
+        N = len(Px1)
+        Px1= np.sort(Px1)[::-1]
+        #print(sum(Px))
+        V, ep = Vertex_numeration(k, Px1, N)
+        V = np.array(V)
+        #print(V)
+        Py = mutual_opt(Px1, V, N)
+        #print(Py)
+        #print(sum(Py))
+        #print(sum(Px1))
 
-    Px = np.array(Px[0:3])
-    Px = Px/ np.sum(Px)
-    #print(sum(Px))
-    print(Px)
-    N = len(Px)
-    V = Vertex_numeration(k, Px, N)
-    V = np.array(V)
-    print(V)
-    Py = mutual_opt(Px, V, N)
-    print(Py)
+        Pearson1 = pearson(Px1, Py, N)
 
-    # output_dir = 'result'
-    #
-    # output_file_path = os.path.join(output_dir, 'wineout.txt')
-    #
-    # with open(output_file_path, 'w') as f:
-    #     # 写入V的标签和数据
-    #     f.write("V\n")
-    #     for item in V:
-    #         f.write(f"{item}\n")
-    #
-    #     # 写入Py的标签和数据
-    #     f.write("Py\n")
-    #     for item in Py:
-    #         f.write(f"{item}\n")
+        mutual1 = mutual(Px1, Py,V, N)
+        mutuals[i] = mutual1
+        pearsons[i] = Pearson1
+        i = i + 1
 
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        save_str = "k={}_N={}".format(k, j)
+        with open('result/%s_log_%s.txt' % (save_str, timestamp), 'w') as f:
+            f.write(timestamp)
+            f.write('\n')
+
+            f.write("V:\n")
+            for row in V:
+                row_str = ', '.join(f'{num:.6f}' for num in row)
+                f.write(row_str + '\n')
+            f.write('\n')
+
+            f.write("Py:\n")
+            array_str = ', '.join(f'{num:.6f}' for num in Py)
+            f.write(array_str + '\n')
+
+            f.write("Mutual_information: {}\n".format(mutual1))
+
+            f.write("Pearson_coefficient: {}\n".format(Pearson1))
+        # output_dir = 'result'
+        #
+        # output_file_path = os.path.join(output_dir, 'wineout.txt')
+        #
+        # with open(output_file_path, 'w') as f:
+        #     # 写入V的标签和数据
+        #     f.write("V\n")
+        #     for item in V:
+        #         f.write(f"{item}\n")
+        #
+        #     # 写入Py的标签和数据
+        #     f.write("Py\n")
+        #     for item in Py:
+        #         f.write(f"{item}\n")
+    # np.savetxt('vertical_data.csv', mutuals.reshape(-1, 1), delimiter=',', fmt='%d')
+    # np.savetxt('vertical_data1.csv', pearsons.reshape(-1, 1), delimiter=',', fmt='%d')
+    print(mutuals)
+    print(pearsons)
+    df = pd.DataFrame(mutuals, columns=['Value'])
+    df.to_csv('vertical_data.csv', index=False)
+    df = pd.DataFrame(pearsons, columns=['Value'])
+    df.to_csv('vertical_data1.csv', index=False)
 
 
 

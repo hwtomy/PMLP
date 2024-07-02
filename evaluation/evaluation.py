@@ -1,24 +1,25 @@
 import numpy as np
 
-def mutual(X, Y):
-    xm = max(X)
-    ym = max(Y)
-    px = np.zeros(xm+1)
-    py = np.zeros(ym+1)
-    pxy = np.zeros((xm+1, ym+1))
-    for i in range(len(X)):
-        px[X[i]] += 1
-        py[Y[i]] += 1
-        pxy[X[i], Y[i]] += 1
-    px = px / len(X)
-    py = py / len(Y)
-    pxy = pxy / len(X)
+def mutual(Px, Py, V, Nx):
+    Ny = len(Py)
+    Pyr = np.zeros(Ny)
+    Px_y = np.zeros((Nx, Nx))
+    j = 0
+    for i in range(Ny):
+        if Py[i] != 0:
+            Pyr[j] = Py[i]
+            for k in range(Nx):
+                Px_y[j, k] = V[i,k]*Px[k]*Px[k]
+            j = j + 1
+    ep =1e-9
     mutual = 0
-    N = len(X)
-    for i in range(len(px)):
-        for j in range(len(py)):
-            if pxy[i, j] != 0 and px[i] != 0 and py[j] != 0:
-                mutual += pxy[i, j]/N * np.log(N*pxy[i, j] / (px[i] * py[j]))
+    for i in range(Nx):
+        for j in range(Nx):
+                temp = (Nx*Px_y[i, j]) / (Px[j] * Pyr[i])
+                if temp ==0:
+                    temp = ep
+                #print (temp)
+                mutual += Px_y[i, j]/Nx * np.log(temp)
     return mutual
 
 def coefficient(X, Y):
@@ -26,4 +27,39 @@ def coefficient(X, Y):
     ymean = np.mean(Y)
     r = np.sum((X - xmean) * (Y - ymean)) / np.sqrt(np.sum((X - xmean)**2) * np.sum((Y - ymean)**2))
     return r
+
+def pearson(Px, Py, Nx):
+    print(sum(Px))
+    data_points = np.arange(Nx)
+    j = 0
+    le = 10000
+    Ny = len(Py)
+    Pyr = np.zeros(Nx)
+    for i in range(Ny):
+        if Py[i] != 0:
+            Pyr[j] = Py[i]
+            j = j + 1
+    print(sum(Px))
+    X_sample = np.random.choice(data_points, size=le, p=Px)
+    #data_points1 = np.arange(len(Py))
+    Y_sample = np.random.choice(data_points, size=le, p=Pyr)
+
+
+    X_mean = np.mean(X_sample)
+    Y_mean = np.mean(Y_sample)
+
+    #personal coefficient
+    numerator = np.sum((X_sample - X_mean) * (Y_sample - Y_mean))
+    denominator = np.sqrt(np.sum((X_sample - X_mean) ** 2) * np.sum((Y_sample - Y_mean) ** 2))
+    pearson_correlation = numerator / denominator
+
+    #explained variance
+    # numerator = cp.sum((X_sample - Y_sample)**2)
+    # denominator = cp.sqrt(cp.sum((X_sample - X_mean)**2)
+    #
+    # pearson_correlation = 1-numerator / denominator
+
+    #spearman's corrletation
+
+    return pearson_correlation
 

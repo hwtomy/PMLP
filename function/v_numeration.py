@@ -2,8 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as opt
 import cvxpy as cp
-from function.utility import mutual, spearman_rank_correlation, infgain, kldiv
+from function.utility import mutual, spearman_rank_correlation, infgain, kldiv, X_squared, TV
 from itertools import combinations
+import random
 import gurobipy as gp
 from gurobipy import GRB
 
@@ -11,7 +12,13 @@ from gurobipy import GRB
 
 
 def Vertex_numeration(k, Px, N):
-    epsilon = np.sum(-np.log(Px[0:N-k]))
+
+    kf = -np.log(np.sum(Px[0:N-k+1]))
+    kb = -np.log(np.sum(Px[0:N-k]))
+    #print(kf,kb)
+    #epsilon = random.uniform(kf,kb)
+    #print(epsilon)
+    epsilon = kf
     V = []
     #d = 0
     for i in range(k):
@@ -32,7 +39,7 @@ def Vertex_numeration(k, Px, N):
                     V.append(lambdav.copy())
                     #d += 1
     #print(d)
-    return V
+    return V, epsilon
 
 
 # def mutual_information(V, Px):
@@ -76,6 +83,7 @@ def Vertex_numeration(k, Px, N):
 
 def mutual_opt(Px,V, N):
     N1 = V.shape[0]
+    #print(N1)
     Py = cp.Variable(N1)
     Pya = cp.Variable(N1, boolean=True)
 
@@ -86,7 +94,9 @@ def mutual_opt(Px,V, N):
     for i in range(N):
         constraints.append(cp.sum(cp.multiply(Py,V[:, i])) == 1)
 
-    objective = cp.Maximize(cp.sum([mutual(V[j, :], Py[j], Px) for j in range(N1)]))
+    #objective = cp.Maximize(cp.sum([mutual(V[j, :], Py[j], Px) for j in range(N1)]))
+    #objective = cp.Maximize(cp.sum([X_squared(V[j, :], Py[j], Px) for j in range(N1)]))
+    objective = cp.Maximize(cp.sum([TV(V[j, :], Py[j], Px) for j in range(N1)]))
 
     constraints.append(cp.sum(Py) == 1)
     M = 1e6
@@ -159,52 +169,7 @@ def mutual_opt(Px,V, N):
 
     return Py.value
 
-def person_opt(Px, V, N):
-    Py = cp.Variable(N)
-    Pxy = cp.Variable((N, N))
 
-    constraints = [
-        Pxy >= 0,
-        cp.sum(Pxy, axis=1) == Px,  #
-        cp.sum(Pxy, axis=0) == Py  #
-    ]
-
-    for i in range(N):
-        constraints.append(cp.sum([Py[j] * V[i, j] for j in range(N)]) == 1)
-
-    constraints += [
-        cp.sum(Py) == 1,  #
-        Py >= 0
-    ]
-
-    data_points = np.arange(len(Px))
-    X_sample = np.random.choice(data_points, size=N, p=Px)
-    #data_points1 = np.arange(len(Py))
-    Y_sample = np.random.choice(data_points, size=N, p=Px)
-
-
-    X_mean = np.mean(X_sample)
-    Y_mean = np.mean(Y_sample)
-
-    #personal coefficient
-    numerator = cp.sum((X_sample - X_mean) * (Pxy - Y_mean))
-    denominator = cp.sqrt(cp.sum((X_sample - X_mean) ** 2) * cp.sum((Pxy - Y_mean) ** 2))
-    pearson_correlation = 1 - numerator / denominator
-
-    #explained variance
-    # numerator = cp.sum((X_sample - Y_sample)**2)
-    # denominator = cp.sqrt(cp.sum((X_sample - X_mean)**2)
-    #
-    # pearson_correlation = 1-numerator / denominator
-
-    #spearman's corrletation
-
-    objective = cp.Maximize(cp.sum([Py[j] * pearson_correlation[j] for j in range(N)]))
-
-    proby = cp.Problem(objective, constraints)
-    result = proby.solve()
-
-    return Py.value
 
 # def infgain_opt(Px,V, N):
 #     N1 = np.shape(V)[0]
