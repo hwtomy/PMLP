@@ -10,117 +10,94 @@ from gurobipy import GRB
 
 
 
+"""
+This is the function to calculation Px|y/Px according to algorithm 1
+It is now need input region k, Px, alphabet size N(may not need). If epsilon is input, k need to be calculate.
+"""
+def Vertex_numeration(k1, Px, N):
 
-def Vertex_numeration(k, Px, N):
-
-    kf = -np.log(np.sum(Px[0:N-k+1]))
-    kb = -np.log(np.sum(Px[0:N-k]))
+    #kf = -np.log(np.sum(Px[0:N-k+1]))#Get the lower bound of epsilon
+    #kb = -np.log(np.sum(Px[0:N-k]))#Get the upper bound of epsilon
     #print(kf,kb)
     #epsilon = random.uniform(kf,kb)
     #print(epsilon)
-    epsilon = kf
+    k = 3
+    epsilon = np.log(3)
     V = []
     #d = 0
     for i in range(k):
-        for J in combinations(range(N), N - i):
+        for J in combinations(range(N), N - i):##enumerate all the combination of N choose N-i
             #print(Px.shape)
             #print(J)
-            tsum = sum(Px[m] for m in J)
+            tsum = np.sum(Px[m] for m in J)
             if tsum >=np.exp(-epsilon):
                 lambdav = np.zeros(N)
                 for j in J:
                     lambdav[j] = (1-(np.exp(epsilon)*(tsum - Px[j])))/Px[j]
-                    #print(lambdav[j])
-                    for j1 in J:
-                        if j1 != j:
-                            #print(j1,j)
-                            lambdav[j1] = np.exp(epsilon)
-                    #print(lambdav)
-                    V.append(lambdav.copy())
+                    if lambdav[j] >= 0: #avoid negative value
+                        #print(lambdav[j])
+                        for j1 in J:
+                            if j1 != j:
+                                #print(j1,j)
+                                lambdav[j1] = np.exp(epsilon)
+                        #print(lambdav)
+                        V.append(lambdav.copy())#get possible Px_y/Px
                     #d += 1
-    #print(d)
+    print(V)
     return V, epsilon
 
-
-# def mutual_information(V, Px):
-#
-#     Py_x = V * Px
-#     Py = np.sum(Py_x)
-#     if Py == 0:
-#         return 0
-#     Px_y = Py_x / Py
-#     return np.sum(Py_x * np.log(Px_y / Px))
-
-
-# def optimal_privacy_mechanism(V, Px):
-#
-#     num_vertices = len(V)
-#     dim = len(V[0])
-#
-#     c = np.array([-mutual_information(vertex, Px) for vertex in V])
-#
-#     # Equality constraints: sum(P_Y) = 1 and sum(P_Y[j] * V[j][i]) = 1 for all i
-#     A_eq = np.zeros((dim + 1, num_vertices))
-#     b_eq = np.zeros(dim + 1)
-#     b_eq[0] = 1
-#
-#     for j, vertex in enumerate(V):
-#         A_eq[0, j] = 1
-#         for i in range(dim):
-#             A_eq[i + 1, j] = vertex[i]
-#             b_eq[i + 1] = 1
-#
-#     # Bounds: 0 <= P_Y[j] <= 1 for all j
-#     bounds = [(0, 1) for _ in range(num_vertices)]
-#
-#     # Solve the linear programming problem
-#     result = opt.linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-#
-#     if result.success:
-#         return result.x
-#     else:
-#         raise ValueError("No result")
-
+"""
+This is the function to calculation Px|y/Px according to algorithm 1
+It is now need input Px V matrix got from Vertex_numeration. 
+Different utility function can be chosen.
+Different solver can be chosen if the solver cen be used to solve MIX question.
+"""
 def mutual_opt(Px,V, N):
     N1 = V.shape[0]
     #print(N1)
     Py = cp.Variable(N1)
-    Pya = cp.Variable(N1, boolean=True)
+    Pya = cp.Variable(N1, boolean=True) # Control the number of non-zero elements in Py
 
     constraints = []
     #print(V.shape)
     #print(Py.shape)
 
     for i in range(N):
-        constraints.append(cp.sum(cp.multiply(Py,V[:, i])) == 1)
+        constraints.append(cp.sum(cp.multiply(Py,V[:, i])) == 1) #The condition 2 in theorem 5
 
-    #objective = cp.Maximize(cp.sum([mutual(V[j, :], Py[j], Px) for j in range(N1)]))
-    #objective = cp.Maximize(cp.sum([X_squared(V[j, :], Py[j], Px) for j in range(N1)]))
-    objective = cp.Maximize(cp.sum([TV(V[j, :], Py[j], Px) for j in range(N1)]))
+    ##Different utility function can be chosen in the maxinum question
+    #objective = cp.Maximize(cp.sum([mutual(V[j, :], Py[j], Px) for j in range(N1)]))#mutual information
+    #objective = cp.Maximize(cp.sum([X_squared(V[j, :], Py[j], Px) for j in range(N1)]))#Kai square
+    objective = cp.Maximize(cp.sum([TV(V[j, :], Py[j], Px) for j in range(N1)]))# TV
 
     constraints.append(cp.sum(Py) == 1)
-    M = 1e6
+    M = 1e9# set a large number
 
+    ## Control the number of nonzeros elements in Py
     for i in range(N1):
         constraints.append(Py[i] <= M * Pya[i])
+        constraints.append(Py[i] >= -M * Pya[i])
         constraints.append(Py[i] >= 0)
 
-    #constraints += [Py[i] <= M * Pya[i] for i in range(N1)]
-    constraints.append(cp.sum(Pya) <= N)
-    #constraints += [Py[i] >= 0 for i in range(N1)]
+    constraints.append(cp.sum(Pya) <= N) # Non zeros elements in Py less than size of Px
+    #print(N)
 
     # print("Objective:", objective)
     # print("Constraints:")
     # for constraint in constraints:
     #     print(constraint)
     proby = cp.Problem(objective, constraints)
-    #result = proby.solve(solver=cp.GUROBI, verbose=True, reoptimize=True,**{"Presolve": 0})
-    result = proby.solve(solver=cp.GUROBI)
+
+    # Below two solver is ok, others not gunrantee.
+    #result = proby.solve(solver=cp.GUROBI)
+    result = proby.solve(solver=cp.CBC)
     # print("Problem status:", proby.status)
 
+
+    # The following part is uesed to see the process of solver
     # problem = cp.Problem(objective, constraints)
     #
-    # # 自定义回调函数
+    # #
     # def callback(model, where):
     #     if where == GRB.Callback.MIP:
     #         obj = model.cbGet(GRB.Callback.MIP_OBJBST)
@@ -128,14 +105,14 @@ def mutual_opt(Px,V, N):
     #         print(f"Current Best Objective: {obj}, Current Best Bound: {obj_bound}")
     #
     # try:
-    #     # 将问题转换为 Gurobi 模型
+    #     #  Gurobi
     #     model = gp.Model()
     #
-    #     # 添加变量
+    #     #
     #     gurobi_x = model.addMVar(shape=N1, vtype=GRB.CONTINUOUS, name="Py")
     #     gurobi_z = model.addMVar(shape=N1, vtype=GRB.BINARY, name="Pya")
     #
-    #     # 添加约束
+    #     #
     #     for i in range(N1):
     #         model.addConstr(gurobi_x[i] <= M * gurobi_z[i], name=f"x_{i}_constr")
     #         model.addConstr(gurobi_x[i] >= 0, name=f"x_{i}_non_neg")
@@ -143,20 +120,19 @@ def mutual_opt(Px,V, N):
     #     model.addConstr(gurobi_x.sum() == 1, name="sum_1")
     #     model.addConstr(gurobi_z.sum() <= N, name="non_zero")
     #
-    #     # 设置目标函数
+    #     #
     #     model.setObjective(gurobi_x.sum(), GRB.MAXIMIZE)
     #
-    #     # 设置回调函数
+    #     #
     #     model.optimize(callback)
     #
-    #     # 输出结果
+    #     #
     #     print("Optimal value:", model.ObjVal)
     #     print("Optimal solution x:", gurobi_x.X)
     #     print("Non-zero elements in x:", np.count_nonzero(gurobi_x.X))
     # except gp.GurobiError as e:
     #     print("Gurobi error:", e)
     #
-    # # 检查问题状态
     # status = model.Status
     # if status == GRB.INFEASIBLE:
     #     print("The problem is infeasible.")
@@ -169,8 +145,9 @@ def mutual_opt(Px,V, N):
 
     return Py.value
 
-
-
+"""
+This is use of information gain as utility function, but have not test yet.
+"""
 # def infgain_opt(Px,V, N):
 #     N1 = np.shape(V)[0]
 #     Py = cp.Variable(N1)
@@ -191,7 +168,7 @@ def mutual_opt(Px,V, N):
 #     #  H(Y|X)
 #     H_Y_given_X = -cp.sum(cp.multiply(PXY, cp.log(PXY + 1e-9)))
 #
-#     # 计算信息增益 IG(X, Y)
+#     #  IG(X, Y)
 #     information_gain = H_Y - H_Y_given_X
 #
 #     objective = cp.Maximize(cp.sum([Py[j] * mutual_information[j] for j in range(N)]))
@@ -206,6 +183,9 @@ def mutual_opt(Px,V, N):
 #
 #     return Py.value
 
+"""
+If calculate based on outcomes, this may work.
+"""
 def spearman(Px, V, N):
     Py = cp.Variable(N)
     Pxy = cp.multiply(V, Px.reshape(-1, 1)) * Py
@@ -236,11 +216,11 @@ def spearman(Px, V, N):
 
     Py_initial = Py.value
 
-    # 最终目标函数
+    #
     spearman_terms = [spearman_rank_correlation(Py_initial, V[:, j]) for j in range(N)]
     spearman_corr = cp.sum(spearman_terms)
 
-    # 定义最终目标函数，最大化正相关系数
+    #
     final_objective = cp.Maximize(spearman_corr)
     final_prob = cp.Problem(final_objective, constraints)
     final_result = final_prob.solve()
