@@ -91,10 +91,18 @@ def mutual_opt(Px,V, N):
     # Below two solver is ok, others not gunrantee.
     #result = proby.solve(solver=cp.GUROBI)
     result = proby.solve(solver=cp.CBC)
+    """
+    This is a MIX solver problem, but not every solver that designed to solve MIX can be used.
+    Some will get strange result, but it may not turn out to be wrong. Sorry for have forgotten the name of the solver.
+    If want to use different other than the folowing two, please do some test process.
+    """
     # print("Problem status:", proby.status)
 
 
-    # The following part is uesed to see the process of solver
+    """
+    The following part is uesed to see the process of solver. When confusing with the result come from the solver, this block should be used
+    Bseides, it may contribte to time improvement as the iteration can be see in this block.
+    """
     # problem = cp.Problem(objective, constraints)
     #
     # #
@@ -185,6 +193,8 @@ This is use of information gain as utility function, but have not test yet.
 
 """
 If calculate based on outcomes, this may work.
+But indeed, it had better not to be used. To the information by now, it should be the same as other utility function if it is correct.
+Just reserve here as a reference.
 """
 def spearman(Px, V, N):
     Py = cp.Variable(N)

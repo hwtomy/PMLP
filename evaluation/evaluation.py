@@ -78,3 +78,21 @@ def pearson(Px, Py, Nx):
 
     return pearson_correlation
 
+"""
+The function is used to show the error of the output if useing Py|x. The can be described as loss of the algorithm or accurate.
+As the eplision only guarantee the privacy, but not guarantee the accuracy if it have been in a specific level.
+"""
+
+def loss(X,Xalphabet, Pyp):
+    N = len(X)
+    Y = np.zeros(N)
+    for i in range(N):
+        Py = Pyp[X[i]]
+        Y[i] = np.random.choice(Xalphabet,size=1, p=Py)
+    count = 0
+    for i in range(N):
+        if X[i] != Y[i]:
+            count = count + 1
+    loss = count/N
+    return loss
+

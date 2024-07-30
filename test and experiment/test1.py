@@ -8,6 +8,7 @@ from evaluation.evaluation import pearson, mutual
 import datetime
 import os
 from function.utility import postpossibility
+import time
 
 
 
@@ -32,16 +33,23 @@ if __name__ == "__main__":
     N = len(Px1)
     Px1= np.sort(Px1)[::-1]#from large to small
     #print(sum(Px))
+    stime = time.time()
     V, ep = Vertex_numeration(k, Px1, N) #calculate the V matrix
     V = np.array(V)
     print(V)
     Py = mutual_opt(Px1, V, N) #calculate the Py
     Py_x = postpossibility(Px1, Py, V) #calculate the Py_x
+    etime = time.time()
+    rtiem = etime - stime #calculate the running time of each alphabet
+    retime = (etime - stime)/len(Px1) #calculate the average running time on every element in Px
     print(Py)
     #print(sum(Py))
     #print(sum(Px1))
     #print(Py_x)
-
+"""
+The folllowing block is used to save the result to the file, every single input alphabet 
+will be save in one txt file with v matrix and Py. Finally, the mutual information and Pearson coefficient will be saved in CSV file.
+"""
         # Pearson1 = pearson(Px1, Py, N)
         #
         # mutual1 = mutual(Px1, Py,V, N)
