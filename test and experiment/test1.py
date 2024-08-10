@@ -4,11 +4,12 @@ import scipy.optimize as opt
 from function.v_numeration import Vertex_numeration, mutual_opt
 from function.prob import makelist
 import pandas as pd
-from evaluation.evaluation import pearson, mutual
+from evaluation.evaluation import pearson, mutual, change
 import datetime
 import os
 from function.utility import postpossibility
 import time
+
 
 
 
@@ -43,6 +44,14 @@ if __name__ == "__main__":
     rtiem = etime - stime #calculate the running time of each alphabet
     retime = (etime - stime)/len(Px1) #calculate the average running time on every element in Px
     print(Py)
+
+## calculate the loss during loss
+    Y = change(X, Xlist, Py_x)
+    count = 0
+    for i in range(len(Y)):
+        if Y[i] != X[i]:
+            count += 1
+    loss = count/len(Y)
     #print(sum(Py))
     #print(sum(Px1))
     #print(Py_x)

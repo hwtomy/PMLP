@@ -96,3 +96,18 @@ def loss(X,Xalphabet, Pyp):
     loss = count/N
     return loss
 
+"""
+Thuis function is used to change the X to Y based on the possibility of Py|x
+Then the output Y is the desired new data  comply with PML.
+The input is the origin data X, , the alphabet of X and post possibility
+"""
+def change(X, Xlist, Py_x):
+    N = len(X)
+    Y = np.zeros(N)
+    for i in range(N):
+        xd = Xlist.indeds(X[i])
+        Py = Py_x[X[i]]
+        Y[i] = np.random.choice(Xlist, size=1, p=Py)
+    return Y
+
+
